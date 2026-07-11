@@ -1,0 +1,13 @@
+school ──┐                  parent_student
+          ├── class ── student ──┬── parent (user)
+          │        │             │
+user ─────┴────────┴─────────────┘
+  │
+  ├── notice ── notice_target
+  ├── homework
+  ├── activity ── activity_image
+  │            ── activity_comment
+  ├── grade
+  ├── reward_punishment
+  ├── evaluation
+  └── attendance
