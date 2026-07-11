@@ -62,7 +62,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       return res.status(403).json({ code: 403, message: '账号未激活，请联系班主任审核' });
     }
 
-    res.json({ code: 200, message: '登录成功', data: { id: user.id, username: user.username } });
+    res.json({ code: 200, message: '登录成功', data: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
     console.error('登录接口错误:', err);
     return res.status(500).json({ code: 500, message: '服务器内部错误' });
@@ -71,7 +71,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 
 // ---------- 注册接口 ----------
 app.post('/api/register', registerLimiter, async (req, res) => {
-  const { username, password, phone, childName, className } = req.body;
+  const { username, password, role, phone, childName, className } = req.body;
   // 注意：phone 对应数据库 phone 列（DB列名存在拼写偏差，暂保持一致）
 
   // 后端二次校验
@@ -80,6 +80,11 @@ app.post('/api/register', registerLimiter, async (req, res) => {
   }
   if (!password || password.length < 6) {
     return res.status(400).json({ code: 400, message: '密码至少需要6个字符' });
+  }
+  // 校验角色合法值
+  const validRoles = ['student', 'teacher', 'parent', 'leader'];
+  if (!role || !validRoles.includes(role)) {
+    return res.status(400).json({ code: 400, message: '请选择有效身份' });
   }
   if (!phone) {
     return res.status(400).json({ code: 400, message: '手机号不能为空' });
@@ -95,9 +100,9 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     // 异步加密密码，避免阻塞事件循环
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const sql = `INSERT INTO user (username, password, phone, child_name, class_name, status)
-                 VALUES (?, ?, ?, ?, ?, 0)`;
-    const [result] = await pool.promise().query(sql, [username, hashedPassword, phone, childName, className]);
+    const sql = `INSERT INTO user (username, password, role, phone, child_name, class_name, status)
+                 VALUES (?, ?, ?, ?, ?, ?, 0)`;
+    const [result] = await pool.promise().query(sql, [username, hashedPassword, role, phone, childName, className]);
 
     res.json({ code: 200, message: '注册申请已提交，请等待班主任审核' });
   } catch (err) {
