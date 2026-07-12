@@ -263,11 +263,53 @@ INSERT IGNORE INTO `class` (`id`, `school_id`, `name`, `grade`, `year`) VALUES
 (3, 1, '三年级一班', '三年级', 2024);
 
 -- ============================================================
---  附录：已有 user 表升级语句（如果 user 表已存在但缺少字段）
+--  附录：已有 user 表升级语句
 -- ============================================================
 
--- 如果 created_at 字段不存在，取消下面注释执行：
--- ALTER TABLE `user` ADD COLUMN `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间';
+-- V2: 将登录标识从 username 改为 phone，去掉家长专属字段，加真实姓名
+-- 执行前请确保 user 表中 phone 列无重复值，否则 uk_phone 会失败
+-- ALTER TABLE `user`
+--   DROP COLUMN `child_name`,
+--   DROP COLUMN `class_name`,
+--   ADD COLUMN `real_name` VARCHAR(50) DEFAULT NULL COMMENT '真实姓名' AFTER `phone`,
+--   DROP INDEX `uk_username`,
+--   MODIFY `username` VARCHAR(50) DEFAULT NULL COMMENT '登录名（已废弃，改用 phone 登录）',
+--   ADD UNIQUE KEY `uk_phone` (`phone`);
 
--- 如果 updated_at 字段不存在，取消下面注释执行：
--- ALTER TABLE `user` ADD COLUMN `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间' AFTER `created_at`;
+-- ============================================================
+--  四、角色扩展表（V2 新增）
+-- ============================================================
+
+-- 4.1 家长详细信息表
+CREATE TABLE IF NOT EXISTS `parent_detail` (
+  `id`         INT         NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+  `user_id`    INT         NOT NULL COMMENT '家长用户ID，关联 user.id',
+  `student_id` INT         NOT NULL COMMENT '绑定的学生ID，关联 student.id',
+  `relation`   VARCHAR(20) NOT NULL DEFAULT 'father' COMMENT '关系：father|mother|grandfather|grandmother|other',
+  `created_at` TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uk_user_id` (`user_id`),
+  KEY `idx_student_id` (`student_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家长详细信息表';
+
+-- 4.2 教师详细信息表
+CREATE TABLE IF NOT EXISTS `teacher_detail` (
+  `id`               INT          NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+  `user_id`          INT          NOT NULL COMMENT '教师用户ID，关联 user.id',
+  `teacher_no`       VARCHAR(30)  NOT NULL COMMENT '教师工号',
+  `subject`          VARCHAR(50)  DEFAULT NULL COMMENT '任教科目（如：语文、数学）',
+  `is_class_teacher` TINYINT      NOT NULL DEFAULT 0 COMMENT '0=科任老师 1=班主任',
+  `managed_classes`  VARCHAR(200) DEFAULT NULL COMMENT '管理班级ID列表（JSON数组，如：[1,2]）',
+  `created_at`       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uk_user_id` (`user_id`),
+  UNIQUE KEY `uk_teacher_no` (`teacher_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='教师详细信息表';
+
+-- 4.3 领导详细信息表
+CREATE TABLE IF NOT EXISTS `leader_detail` (
+  `id`         INT          NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+  `user_id`    INT          NOT NULL COMMENT '领导用户ID，关联 user.id',
+  `title`      VARCHAR(50)  NOT NULL COMMENT '职位（如：校长、教务主任）',
+  `dept_name`  VARCHAR(50)  DEFAULT NULL COMMENT '所属部门（如：教务处、校长室）',
+  `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uk_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='领导详细信息表';

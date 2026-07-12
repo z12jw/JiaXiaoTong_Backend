@@ -31,38 +31,39 @@ tr:hover{background:#fafafa}
 .result-box{background:#f6ffed;border:1px solid #b7eb8f;border-radius:4px;padding:12px;margin-top:12px;font-size:12px;max-height:300px;overflow:auto;white-space:pre-wrap;font-family:Consolas,monospace}
 .result-box.error{background:#fff2f0;border-color:#ffccc7}
 #login-page{display:flex;justify-content:center;align-items:center;height:100vh;background:linear-gradient(135deg,#1677ff,#69b1ff)}
-.login-card{background:#fff;border-radius:12px;padding:40px;width:380px;box-shadow:0 4px 20px rgba(0,0,0,.15)}
-.login-card h2{text-align:center;margin-bottom:30px;color:#1677ff}
-.login-card input{width:100%;padding:10px;border:1px solid#d9d9d9;border-radius:6px;margin-bottom:16px;font-size:14px}
+.login-card{background:#fff;border-radius:12px;padding:40px;width:400px;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+.login-card h2{text-align:center;margin-bottom:24px;color:#1677ff}
+.login-card input,.login-card select{width:100%;padding:10px;border:1px solid#d9d9d9;border-radius:6px;margin-bottom:12px;font-size:14px}
 .login-card .btn{width:100%;padding:10px;font-size:15px;margin-bottom:12px}
 .login-card .link{text-align:center;color:#1677ff;cursor:pointer;font-size:13px}
-.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.tab{padding:6px 16px;background:#f5f5f5;border-radius:4px;cursor:pointer;font-size:13px;border:1px solid transparent}
-.tab.active{background:#1677ff;color:#fff}
-.section{display:none}
-.section.active{display:block}
-pre{font-size:12px;line-height:1.6}
+#role-fields{margin-bottom:8px}
+#role-fields input,#role-fields select{width:100%;padding:10px;border:1px solid#d9d9d9;border-radius:6px;margin-bottom:12px;font-size:14px}
 </style>
 </head>
 <body>
 
 <!-- 登录页 -->
 <div id="login-page">
-  <div class="login-card">
+  <div class="login-card" id="login-card">
     <h2>家校通 测试面板</h2>
-    <input id="login-username" placeholder="用户名">
+    <input id="login-phone" placeholder="手机号 / 学号 / 工号">
     <input id="login-password" type="password" placeholder="密码">
     <button class="btn" onclick="login()">登 录</button>
     <div class="link" onclick="showRegister()">没有账号？去注册</div>
   </div>
   <div class="login-card" id="register-card" style="display:none">
     <h2>注册新账号</h2>
-    <input id="reg-username" placeholder="用户名（至少3位）">
+    <input id="reg-phone" placeholder="手机号（11位）">
     <input id="reg-password" type="password" placeholder="密码（至少6位）">
-    <select id="reg-role"><option value="">选择身份</option><option value="student">学生</option><option value="teacher">老师</option><option value="parent">家长</option><option value="leader">领导</option></select>
-    <input id="reg-phone" placeholder="手机号">
-    <input id="reg-childName" placeholder="孩子姓名">
-    <input id="reg-className" placeholder="班级名称">
+    <input id="reg-real_name" placeholder="真实姓名">
+    <select id="reg-role" onchange="switchRoleFields()">
+      <option value="">选择身份</option>
+      <option value="student">学生</option>
+      <option value="teacher">老师</option>
+      <option value="parent">家长</option>
+      <option value="leader">领导</option>
+    </select>
+    <div id="role-fields"></div>
     <button class="btn" onclick="register()">提交注册</button>
     <div class="link" onclick="showLogin()">已有账号？去登录</div>
   </div>
@@ -96,6 +97,27 @@ let token = '';
 let user = null;
 const API = '/api';
 
+// ==================== 角色动态表单 ====================
+function switchRoleFields() {
+  const role = $('#reg-role').value;
+  const div = $('#role-fields');
+  div.innerHTML = '';
+  switch(role) {
+    case 'student':
+      div.innerHTML = `<input id="reg-student_no" placeholder="学号"><input id="reg-class_id" placeholder="班级ID">`;
+      break;
+    case 'parent':
+      div.innerHTML = `<input id="reg-student_id" placeholder="绑定学生ID"><input id="reg-relation" placeholder="关系（father/mother等）">`;
+      break;
+    case 'teacher':
+      div.innerHTML = `<input id="reg-teacher_no" placeholder="教师工号"><input id="reg-subject" placeholder="任教科目（如：语文）">`;
+      break;
+    case 'leader':
+      div.innerHTML = `<input id="reg-title" placeholder="职位（如：校长、教务主任）">`;
+      break;
+  }
+}
+
 // ==================== 鉴权 ====================
 async function api(method, url, body = null) {
   const opts = {method, headers:{}};
@@ -106,16 +128,16 @@ async function api(method, url, body = null) {
 }
 
 async function login() {
-  const username = $('#login-username').value.trim();
+  const loginId = $('#login-phone').value.trim();
   const password = $('#login-password').value.trim();
-  if (!username || !password) return alert('请输入用户名和密码');
-  const res = await api('POST', '/login', {username, password});
+  if (!loginId || !password) return alert('请输入账号和密码');
+  const res = await api('POST', '/login', {account: loginId, password});
   if (res.code === 200) {
     token = res.data.token;
     user = res.data.user;
     $('#login-page').style.display = 'none';
     $('#app-page').style.display = 'block';
-    $('#user-info').textContent = `${res.data.user.username}（${res.data.user.role}）`;
+    $('#user-info').textContent = `${res.data.user.real_name || res.data.user.phone}（${res.data.user.role}）`;
     switchTab('tab-notices');
     loadNotices();
   } else {
@@ -127,25 +149,42 @@ function logout() {
   token = ''; user = null;
   $('#app-page').style.display = 'none';
   $('#login-page').style.display = 'flex';
-  $('#login-username').value = ''; $('#login-password').value = '';
+  $('#login-phone').value = ''; $('#login-password').value = '';
 }
 
 async function register() {
+  const role = $('#reg-role').value;
   const body = {
-    username: $('#reg-username').value.trim(),
-    password: $('#reg-password').value.trim(),
-    role: $('#reg-role').value,
     phone: $('#reg-phone').value.trim(),
-    childName: $('#reg-childName').value.trim(),
-    className: $('#reg-className').value.trim(),
+    password: $('#reg-password').value.trim(),
+    role: role,
+    real_name: $('#reg-real_name').value.trim(),
   };
+  // 按角色追加专属字段
+  switch(role) {
+    case 'student':
+      body.student_no = $('#reg-student_no')?.value.trim();
+      body.class_id = Number($('#reg-class_id')?.value);
+      break;
+    case 'parent':
+      body.student_id = Number($('#reg-student_id')?.value);
+      body.relation = $('#reg-relation')?.value.trim();
+      break;
+    case 'teacher':
+      body.teacher_no = $('#reg-teacher_no')?.value.trim();
+      body.subject = $('#reg-subject')?.value.trim();
+      break;
+    case 'leader':
+      body.title = $('#reg-title')?.value.trim();
+      break;
+  }
   const res = await api('POST', '/register', body);
   alert(res.message);
   if (res.code === 200) showLogin();
 }
 
-function showRegister() { $('#login-card')?.remove(); $('#register-card').style.display = 'block'; }
-function showLogin() { $('#register-card').style.display = 'none'; }
+function showRegister() { $('#login-card').style.display = 'none'; $('#register-card').style.display = 'block'; }
+function showLogin() { $('#register-card').style.display = 'none'; $('#login-card').style.display = 'block'; }
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -191,7 +230,7 @@ function renderUsers() {
       <select id="user-status-filter"><option value="">全部状态</option><option value="0">待审核</option><option value="1">已激活</option><option value="2">已禁用</option></select>
       <button class="btn" onclick="loadUsers()">查询</button>
     </div>
-    <table id="user-table"><thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>手机</th><th>孩子</th><th>班级</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table>
+    <table id="user-table"><thead><tr><th>ID</th><th>手机号</th><th>姓名</th><th>角色</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead><tbody></tbody></table>
     <div class="result-box" id="user-result" style="display:none"></div></div>`;
   $('#main-content').innerHTML = html;
 }
@@ -207,9 +246,8 @@ async function loadUsers() {
   if (res.code === 200 && res.data) {
     const tbody = $('#user-table tbody');
     tbody.innerHTML = res.data.map(u => `<tr>
-      <td>${u.id}</td><td>${u.username}</td><td>${u.role}</td><td>${u.phone||'-'}</td>
-      <td>${u.child_name||'-'}</td><td>${u.class_name||'-'}</td>
-      <td>${['待审核','已激活','已禁用'][u.status]}</td>
+      <td>${u.id}</td><td>${u.phone||'-'}</td><td>${u.real_name||'-'}</td><td>${u.role}</td>
+      <td>${['待审核','已激活','已禁用'][u.status]}</td><td>${u.created_at||'-'}</td>
       <td>
         ${u.status===0?`<button class="btn btn-success" onclick="auditUser(${u.id},1)">通过</button>`:''}
         ${u.status===1?`<button class="btn btn-danger" onclick="auditUser(${u.id},2)">禁用</button>`:''}

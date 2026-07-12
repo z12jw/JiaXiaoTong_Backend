@@ -5,22 +5,49 @@ const { requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// 获取当前用户信息
+// 根据角色联查对应扩展表
+function getDetailQuery(role) {
+  switch (role) {
+    case 'student':
+      return `SELECT u.*, s.student_no, s.class_id, s.school_id, s.gender, s.birth_date
+              FROM user u LEFT JOIN student s ON u.id = s.user_id WHERE u.id = ?`;
+    case 'parent':
+      return `SELECT u.*, pd.student_id, pd.relation
+              FROM user u LEFT JOIN parent_detail pd ON u.id = pd.user_id WHERE u.id = ?`;
+    case 'teacher':
+      return `SELECT u.*, td.teacher_no, td.subject, td.is_class_teacher, td.managed_classes
+              FROM user u LEFT JOIN teacher_detail td ON u.id = td.user_id WHERE u.id = ?`;
+    case 'leader':
+      return `SELECT u.*, ld.title, ld.dept_name
+              FROM user u LEFT JOIN leader_detail ld ON u.id = ld.user_id WHERE u.id = ?`;
+    default:
+      return 'SELECT * FROM user WHERE id = ?';
+  }
+}
+
+// 获取当前用户完整信息
 router.get('/me', (req, res) => {
-  pool.query('SELECT id, username, role, phone, child_name, class_name, status, created_at FROM user WHERE id = ?',
-    [req.user.id], (err, results) => {
-      if (err) {
-        console.error('获取用户信息错误:', err);
-        return res.status(500).json({ code: 500, message: '服务器内部错误' });
-      }
-      res.json({ code: 200, data: results[0] });
-    });
+  const sql = getDetailQuery(req.user.role);
+
+  pool.query(sql, [req.user.id], (err, results) => {
+    if (err) {
+      console.error('获取用户信息错误:', err);
+      return res.status(500).json({ code: 500, message: '服务器内部错误' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ code: 404, message: '用户不存在' });
+    }
+    // 去掉密码字段
+    const user = results[0];
+    delete user.password;
+    res.json({ code: 200, data: user });
+  });
 });
 
 // 用户列表（支持按角色/状态筛选）
 router.get('/users', requireRole('teacher', 'leader'), (req, res) => {
   const { role, status } = req.query;
-  let sql = 'SELECT id, username, role, phone, child_name, class_name, status, created_at FROM user WHERE 1=1';
+  let sql = 'SELECT id, phone, real_name, role, status, created_at FROM user WHERE 1=1';
   const params = [];
 
   if (role) { sql += ' AND role = ?'; params.push(role); }
