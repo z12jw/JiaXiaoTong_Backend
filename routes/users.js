@@ -18,7 +18,7 @@ function getDetailQuery(role) {
       return `SELECT u.*, td.teacher_no, td.subject, td.is_class_teacher, td.managed_classes
               FROM user u LEFT JOIN teacher_detail td ON u.id = td.user_id WHERE u.id = ?`;
     case 'leader':
-      return `SELECT u.*, ld.leader_no, ld.title, ld.dept_name
+      return `SELECT u.*, ld.leader_no, ld.title
               FROM user u LEFT JOIN leader_detail ld ON u.id = ld.user_id WHERE u.id = ?`;
     default:
       return 'SELECT * FROM user WHERE id = ?';

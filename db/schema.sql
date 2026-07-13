@@ -310,7 +310,6 @@ CREATE TABLE IF NOT EXISTS `leader_detail` (
   `user_id`    INT          NOT NULL COMMENT '领导用户ID，关联 user.id',
   `leader_no`  VARCHAR(30)  NOT NULL COMMENT '领导工号',
   `title`      VARCHAR(50)  NOT NULL COMMENT '职位（如：校长、教务主任）',
-  `dept_name`  VARCHAR(50)  DEFAULT NULL COMMENT '所属部门（如：教务处、校长室）',
   `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY `uk_user_id` (`user_id`),
   UNIQUE KEY `uk_leader_no` (`leader_no`)
