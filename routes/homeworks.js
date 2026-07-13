@@ -8,7 +8,7 @@ const router = express.Router();
 // 作业列表（家长看子女班级的，老师看自己布置的）
 router.get('/homeworks', (req, res) => {
   const { class_id, subject, page = 1, pageSize = 20 } = req.query;
-  let sql = `SELECT h.*, u.username AS teacher_name, c.name AS class_name
+  let sql = `SELECT h.*, u.real_name AS teacher_name, c.name AS class_name
              FROM homework h
              LEFT JOIN user u ON h.teacher_id = u.id
              LEFT JOIN class c ON h.class_id = c.id

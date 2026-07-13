@@ -14,16 +14,16 @@ USE `家校通`;
 -- 1.1 统一用户认证表
 CREATE TABLE IF NOT EXISTS `user` (
   `id`          INT           NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',
-  `username`    VARCHAR(50)   NOT NULL COMMENT '登录名（学号/工号/手机号）',
+  `phone`       VARCHAR(20)   NOT NULL COMMENT '手机号（登录账号）',
   `password`    VARCHAR(255)  NOT NULL COMMENT 'bcrypt 加密后的密码',
+  `real_name`   VARCHAR(50)   DEFAULT NULL COMMENT '真实姓名',
   `role`        VARCHAR(20)   NOT NULL DEFAULT 'student' COMMENT '角色：student|teacher|parent|leader',
-  `phone`       VARCHAR(20)   DEFAULT NULL COMMENT '手机号',
   `child_name`  VARCHAR(50)   DEFAULT NULL COMMENT '子女姓名（家长注册时填写）',
   `class_name`  VARCHAR(50)   DEFAULT NULL COMMENT '班级名称（家长注册时填写）',
   `status`      TINYINT       NOT NULL DEFAULT 0 COMMENT '0=待审核 1=已激活 2=已禁用',
   `created_at`  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
   `updated_at`  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
-  UNIQUE KEY `uk_username` (`username`),
+  UNIQUE KEY `uk_phone` (`phone`),
   KEY `idx_role` (`role`),
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='统一用户认证表';
@@ -266,14 +266,14 @@ INSERT IGNORE INTO `class` (`id`, `school_id`, `name`, `grade`, `year`) VALUES
 --  附录：已有 user 表升级语句
 -- ============================================================
 
--- V2: 将登录标识从 username 改为 phone，去掉家长专属字段，加真实姓名
+-- V2: 删除 username 列，改用 phone 登录，添加 real_name 列
 -- 执行前请确保 user 表中 phone 列无重复值，否则 uk_phone 会失败
 -- ALTER TABLE `user`
+--   DROP COLUMN `username`,
 --   DROP COLUMN `child_name`,
 --   DROP COLUMN `class_name`,
 --   ADD COLUMN `real_name` VARCHAR(50) DEFAULT NULL COMMENT '真实姓名' AFTER `phone`,
 --   DROP INDEX `uk_username`,
---   MODIFY `username` VARCHAR(50) DEFAULT NULL COMMENT '登录名（已废弃，改用 phone 登录）',
 --   ADD UNIQUE KEY `uk_phone` (`phone`);
 
 -- ============================================================

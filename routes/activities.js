@@ -8,7 +8,7 @@ const router = express.Router();
 // 活动列表
 router.get('/activities', (req, res) => {
   const { class_id, page = 1, pageSize = 20 } = req.query;
-  let sql = `SELECT a.*, u.username AS organizer_name, c.name AS class_name
+  let sql = `SELECT a.*, u.real_name AS organizer_name, c.name AS class_name
              FROM activity a
              LEFT JOIN user u ON a.organizer_id = u.id
              LEFT JOIN class c ON a.class_id = c.id
@@ -52,7 +52,7 @@ router.post('/activities', requireRole('teacher'), (req, res) => {
 // 活动留言列表
 router.get('/activities/:id/comments', (req, res) => {
   pool.query(
-    `SELECT ac.*, u.username, u.role
+    `SELECT ac.*, u.real_name, u.role
      FROM activity_comment ac
      LEFT JOIN user u ON ac.user_id = u.id
      WHERE ac.activity_id = ? AND ac.status = 1

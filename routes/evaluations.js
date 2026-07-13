@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/evaluations', (req, res) => {
   const { student_id, type, page = 1, pageSize = 20 } = req.query;
 
-  let sql = `SELECT e.*, s.real_name AS student_name, u.username AS teacher_name
+  let sql = `SELECT e.*, s.real_name AS student_name, u.real_name AS teacher_name
              FROM evaluation e
              LEFT JOIN student s ON e.student_id = s.id
              LEFT JOIN user u ON e.teacher_id = u.id

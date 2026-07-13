@@ -8,7 +8,7 @@ const router = express.Router();
 // 通知列表
 router.get('/notices', (req, res) => {
   const { school_id, scope, status, page = 1, pageSize = 20 } = req.query;
-  let sql = `SELECT n.*, u.username AS publisher_name
+  let sql = `SELECT n.*, u.real_name AS publisher_name
              FROM notice n
              LEFT JOIN user u ON n.publisher_id = u.id
              WHERE n.status != 0`;
@@ -33,7 +33,7 @@ router.get('/notices', (req, res) => {
 // 通知详情
 router.get('/notices/:id', (req, res) => {
   pool.query(
-    `SELECT n.*, u.username AS publisher_name
+    `SELECT n.*, u.real_name AS publisher_name
      FROM notice n LEFT JOIN user u ON n.publisher_id = u.id
      WHERE n.id = ?`, [req.params.id],
     (err, results) => {

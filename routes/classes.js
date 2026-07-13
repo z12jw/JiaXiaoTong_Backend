@@ -8,7 +8,7 @@ const router = express.Router();
 // 班级列表
 router.get('/classes', (req, res) => {
   const { school_id } = req.query;
-  let sql = 'SELECT c.*, u.username AS head_teacher_name FROM class c LEFT JOIN user u ON c.head_teacher_id = u.id WHERE 1=1';
+  let sql = 'SELECT c.*, u.real_name AS head_teacher_name FROM class c LEFT JOIN user u ON c.head_teacher_id = u.id WHERE 1=1';
   const params = [];
   if (school_id) { sql += ' AND c.school_id = ?'; params.push(Number(school_id)); }
   sql += ' ORDER BY c.grade, c.name';
