@@ -107,10 +107,11 @@ router.post('/register', registerLimiter, async (req, res) => {
       break;
     }
     case 'leader': {
-      const { real_name, title } = req.body;
+      const { real_name, leader_no, title } = req.body;
       if (!real_name) return res.status(400).json({ code: 400, message: '请输入领导姓名' });
+      if (!leader_no) return res.status(400).json({ code: 400, message: '请输入领导工号' });
       if (!title) return res.status(400).json({ code: 400, message: '请输入职位' });
-      roleFields = { real_name, title };
+      roleFields = { real_name, leader_no, title };
       break;
     }
   }
@@ -152,8 +153,8 @@ router.post('/register', registerLimiter, async (req, res) => {
         break;
       case 'leader':
         await conn.query(
-          `INSERT INTO leader_detail (user_id, title) VALUES (?, ?)`,
-          [userId, roleFields.title]
+          `INSERT INTO leader_detail (user_id, leader_no, title) VALUES (?, ?, ?)`,
+          [userId, roleFields.leader_no, roleFields.title]
         );
         break;
     }
