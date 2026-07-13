@@ -8,25 +8,51 @@ const { loginLimiter, registerLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-// ---------- 登录（支持手机号/学号/工号 + 密码） ----------
+// ---------- 登录（身份 + 账号 + 密码 三者匹配） ----------
 router.post('/login', loginLimiter, async (req, res) => {
-  const { account, password } = req.body;
-  // account 兼容旧字段名 phone
+  const { role, account, password } = req.body;
   const loginId = account || req.body.phone;
+  const validRoles = ['student', 'teacher', 'parent', 'leader'];
+
+  if (!role || !validRoles.includes(role)) {
+    return res.status(400).json({ code: 400, message: '请选择有效身份' });
+  }
   if (!loginId || !password) {
     return res.status(400).json({ code: 400, message: '账号和密码不能为空' });
   }
 
   try {
-    // 同时匹配 user.phone、student.student_no、teacher_detail.teacher_no
-    const [results] = await pool.promise().query(
-      `SELECT u.* FROM user u
-       LEFT JOIN student s ON u.id = s.user_id
-       LEFT JOIN teacher_detail td ON u.id = td.user_id
-       WHERE u.phone = ? OR s.student_no = ? OR td.teacher_no = ?
-       LIMIT 1`,
-      [loginId, loginId, loginId]
-    );
+    // 根据角色使用不同查询：学生按学号、教师按工号、家长按手机号、领导按工号
+    let query;
+    const params = [role, loginId];
+
+    switch (role) {
+      case 'student':
+        query = `SELECT u.* FROM user u
+                 INNER JOIN student s ON u.id = s.user_id
+                 WHERE u.role = ? AND s.student_no = ?
+                 LIMIT 1`;
+        break;
+      case 'teacher':
+        query = `SELECT u.* FROM user u
+                 INNER JOIN teacher_detail td ON u.id = td.user_id
+                 WHERE u.role = ? AND td.teacher_no = ?
+                 LIMIT 1`;
+        break;
+      case 'parent':
+        query = `SELECT u.* FROM user u
+                 WHERE u.role = ? AND u.phone = ?
+                 LIMIT 1`;
+        break;
+      case 'leader':
+        query = `SELECT u.* FROM user u
+                 INNER JOIN leader_detail ld ON u.id = ld.user_id
+                 WHERE u.role = ? AND ld.leader_no = ?
+                 LIMIT 1`;
+        break;
+    }
+
+    const [results] = await pool.promise().query(query, params);
 
     if (results.length === 0) {
       return res.status(401).json({ code: 401, message: '账号或密码错误' });
@@ -36,7 +62,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return res.status(401).json({ code: 401, message: '手机号或密码错误' });
+      return res.status(401).json({ code: 401, message: '账号或密码错误' });
     }
 
     if (user.status !== 1) {
