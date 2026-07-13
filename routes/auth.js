@@ -8,67 +8,65 @@ const { loginLimiter, registerLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
-// ---------- 登录（身份 + 账号 + 密码 三者匹配） ----------
+// ---------- 登录（身份 + 账号 + 密码 三者匹配，细分错误返回） ----------
 router.post('/login', loginLimiter, async (req, res) => {
   const { role, account, password } = req.body;
   const loginId = account || req.body.phone;
   const validRoles = ['student', 'teacher', 'parent', 'leader'];
 
+  // ────────── 1. 参数校验 ──────────
   if (!role || !validRoles.includes(role)) {
-    return res.status(400).json({ code: 400, message: '请选择有效身份' });
+    return res.status(400).json({ code: 40001, message: '请选择有效的身份类型' });
   }
-  if (!loginId || !password) {
-    return res.status(400).json({ code: 400, message: '账号和密码不能为空' });
+  if (!loginId) {
+    return res.status(400).json({ code: 40002, message: '请输入账号' });
+  }
+  if (!password) {
+    return res.status(400).json({ code: 40003, message: '请输入密码' });
   }
 
   try {
-    // 根据角色使用不同查询：学生按学号、教师按工号、家长按手机号、领导按工号
-    let query;
-    const params = [role, loginId];
+    // ────────── 2. 全域查找：确认该账号是否存在于系统 ──────────
+    const [anyMatch] = await pool.promise().query(
+      `SELECT u.* FROM user u
+       LEFT JOIN student s ON u.id = s.user_id
+       LEFT JOIN teacher_detail td ON u.id = td.user_id
+       LEFT JOIN leader_detail ld ON u.id = ld.user_id
+       WHERE u.phone = ? OR s.student_no = ? OR td.teacher_no = ? OR ld.leader_no = ?
+       LIMIT 1`,
+      [loginId, loginId, loginId, loginId]
+    );
 
-    switch (role) {
-      case 'student':
-        query = `SELECT u.* FROM user u
-                 INNER JOIN student s ON u.id = s.user_id
-                 WHERE u.role = ? AND s.student_no = ?
-                 LIMIT 1`;
-        break;
-      case 'teacher':
-        query = `SELECT u.* FROM user u
-                 INNER JOIN teacher_detail td ON u.id = td.user_id
-                 WHERE u.role = ? AND td.teacher_no = ?
-                 LIMIT 1`;
-        break;
-      case 'parent':
-        query = `SELECT u.* FROM user u
-                 WHERE u.role = ? AND u.phone = ?
-                 LIMIT 1`;
-        break;
-      case 'leader':
-        query = `SELECT u.* FROM user u
-                 INNER JOIN leader_detail ld ON u.id = ld.user_id
-                 WHERE u.role = ? AND ld.leader_no = ?
-                 LIMIT 1`;
-        break;
+    if (anyMatch.length === 0) {
+      return res.status(404).json({ code: 40401, message: '该账号尚未注册，请检查账号是否正确' });
     }
 
-    const [results] = await pool.promise().query(query, params);
+    const user = anyMatch[0];
 
-    if (results.length === 0) {
-      return res.status(401).json({ code: 401, message: '账号或密码错误' });
+    // ────────── 3. 身份匹配校验 ──────────
+    if (user.role !== role) {
+      return res.status(401).json({ code: 40101, message: '账号身份不匹配，请核对您选择的身份类型' });
     }
 
-    const user = results[0];
-
+    // ────────── 4. 密码校验 ──────────
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return res.status(401).json({ code: 401, message: '账号或密码错误' });
+      return res.status(401).json({ code: 40102, message: '密码错误，请重新输入' });
     }
 
-    if (user.status !== 1) {
-      return res.status(403).json({ code: 403, message: '账号未激活，请联系班主任审核' });
+    // ────────── 5. 账号状态校验 ──────────
+    switch (user.status) {
+      case 0:
+        return res.status(403).json({ code: 40301, message: '账号正在审核中，请耐心等待管理员审核' });
+      case 2:
+        return res.status(403).json({ code: 40302, message: '审核未通过，请联系管理员' });
+      default:
+        if (user.status !== 1) {
+          return res.status(403).json({ code: 40303, message: '账号状态异常，请联系管理员处理' });
+        }
     }
 
+    // ────────── 6. 签发 Token ──────────
     const token = jwt.sign(
       { id: user.id, phone: user.phone, role: user.role },
       JWT_SECRET,
@@ -85,7 +83,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error('登录接口错误:', err);
-    return res.status(500).json({ code: 500, message: '服务器内部错误' });
+    return res.status(500).json({ code: 50000, message: '服务器繁忙，请稍后再试' });
   }
 });
 
