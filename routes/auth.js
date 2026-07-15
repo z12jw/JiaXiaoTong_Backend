@@ -107,11 +107,17 @@ router.post('/register', registerLimiter, async (req, res) => {
   let roleFields;
   switch (role) {
     case 'student': {
-      const { real_name, student_no, class_id } = req.body;
+      const { real_name, student_no, class_code } = req.body;
       if (!real_name) return res.status(400).json({ code: 400, message: '请输入真实姓名' });
       if (!student_no) return res.status(400).json({ code: 400, message: '请输入学号' });
-      if (!class_id) return res.status(400).json({ code: 400, message: '请选择班级' });
-      roleFields = { real_name, student_no, class_id };
+      if (!class_code) return res.status(400).json({ code: 400, message: '请输入班号' });
+
+      // 通过班号查找班级ID
+      const [classRows] = await pool.promise().query('SELECT id FROM class WHERE class_code = ?', [class_code]);
+      if (classRows.length === 0) {
+        return res.status(404).json({ code: 404, message: '班号不存在，请向老师获取正确的班号' });
+      }
+      roleFields = { real_name, student_no, class_id: classRows[0].id };
       break;
     }
     case 'parent': {

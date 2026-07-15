@@ -9,11 +9,16 @@ const router = express.Router();
 function getDetailQuery(role) {
   switch (role) {
     case 'student':
-      return `SELECT u.*, s.student_no, s.class_id, s.school_id, s.gender, s.birth_date
-              FROM user u LEFT JOIN student s ON u.id = s.user_id WHERE u.id = ?`;
+      return `SELECT u.*, s.student_no, s.class_id, s.school_id, s.gender, s.birth_date,
+                     c.name AS class_name
+              FROM user u LEFT JOIN student s ON u.id = s.user_id
+              LEFT JOIN class c ON s.class_id = c.id WHERE u.id = ?`;
     case 'parent':
-      return `SELECT u.*, pd.student_id, pd.relation
-              FROM user u LEFT JOIN parent_detail pd ON u.id = pd.user_id WHERE u.id = ?`;
+      return `SELECT u.*, pd.student_id, pd.relation,
+                     s.real_name AS student_name, c.name AS class_name
+              FROM user u LEFT JOIN parent_detail pd ON u.id = pd.user_id
+              LEFT JOIN student s ON pd.student_id = s.id
+              LEFT JOIN class c ON s.class_id = c.id WHERE u.id = ?`;
     case 'teacher':
       return `SELECT u.*, td.teacher_no, td.subject, td.is_class_teacher, td.managed_classes
               FROM user u LEFT JOIN teacher_detail td ON u.id = td.user_id WHERE u.id = ?`;
@@ -44,8 +49,8 @@ router.get('/me', (req, res) => {
   });
 });
 
-// 用户列表（支持按角色/状态筛选）
-router.get('/users', requireRole('teacher', 'leader'), (req, res) => {
+// 用户列表（所有登录用户可用，前端自行过滤角色）
+router.get('/users', (req, res) => {
   const { role, status } = req.query;
   let sql = 'SELECT id, phone, real_name, role, status, created_at FROM user WHERE 1=1';
   const params = [];
@@ -61,6 +66,24 @@ router.get('/users', requireRole('teacher', 'leader'), (req, res) => {
       return res.status(500).json({ code: 500, message: '服务器内部错误' });
     }
     res.json({ code: 200, data: results });
+  });
+});
+
+// 获取单个用户详情
+router.get('/users/:id', (req, res) => {
+  const sql = getDetailQuery(req.query.role || '');
+
+  pool.query(sql, [req.params.id], (err, results) => {
+    if (err) {
+      console.error('查询用户详情错误:', err);
+      return res.status(500).json({ code: 500, message: '服务器内部错误' });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ code: 404, message: '用户不存在' });
+    }
+    const user = results[0];
+    delete user.password;
+    res.json({ code: 200, data: user });
   });
 });
 

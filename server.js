@@ -29,6 +29,7 @@ app.use('/api', require('./routes/attendance'));
 app.use('/api', require('./routes/grades'));
 app.use('/api', require('./routes/rewards'));
 app.use('/api', require('./routes/evaluations'));
+app.use('/api', require('./routes/messages'));
 
 // ==================== 启动服务 ====================
 const HOST = process.env.HOST || '0.0.0.0';
